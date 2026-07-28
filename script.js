@@ -143,10 +143,9 @@ async function subirYActualizar() {
 
     if (fileInput.files.length === 0) return;
 
-    // BLOQUEO DE SEGURIDAD: Evita enviar datos si la sesión aún no está lista en pantalla
     if (!sessionId) {
         status.innerText = "Esperando conexión con el servidor... Reintente en un momento.";
-        await inicializarSesion(); // Forzar intento de reconexión
+        await inicializarSesion();
         return;
     }
 
@@ -154,39 +153,39 @@ async function subirYActualizar() {
     
     const formData = new FormData();
     for (let i = 0; i < fileInput.files.length; i++) {
-        // El nombre de la clave "files" debe coincidir idéntico con el parámetro del main.py
         formData.append("files", fileInput.files[i]);
     }
 
     try {
-        // Construimos la URL limpia asegurando que no existan espacios ni dobles barras
         const urlDestino = `/api/session/${sessionId.trim()}/upload`;
         
         const response = await fetch(urlDestino, { 
             method: "POST", 
             body: formData 
-            // NOTA: Nunca debes forzar el "Content-Type" manualmente a multipart/form-data aquí, 
-            // el navegador debe calcular el límite ('boundary') de forma automática.
         });
         
         const data = await response.json();
         
         if (response.ok) {
-            status.innerText = `Subida completada con éxito.`;
+            status.innerText = `¡Archivos subidos correctamente!`;
+            
+            // Refrescar la lista de PDFs guardados en pantalla obligatoriamente
             await cargarListaPDFs();
             
-            // Cargar automáticamente en el reproductor el primer PDF que se haya subido de la tanda
+            // CORRECCIÓN CLAVE: Extraemos únicamente el primer texto de la lista de subidos [0]
             if (data.uploaded && data.uploaded.length > 0) {
-                await seleccionarYLeerPDF(data.uploaded[0]);
+                const primerArchivo = data.uploaded[0];
+                await seleccionarYLeerPDF(primerArchivo);
             }
         } else {
             status.innerText = data.detail || "El servidor rechazó los archivos.";
         }
     } catch (error) {
-        status.innerText = "Hubo un error crítico de red al subir los archivos.";
-        console.error(error);
+        status.innerText = "Hubo un error de red al subir los archivos.";
+        console.error("Error en la subida:", error);
     }
 }
+
 
 
 async function seleccionarYLeerPDF(filename) {
