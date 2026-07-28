@@ -1,4 +1,5 @@
 let lineaLectura = new SpeechSynthesisUtterance();
+let velocidadActual = 1.0; // Velocidad inicial por defecto
 
 function actualizarNombre() {
     const fileInput = document.getElementById('pdfFile');
@@ -27,7 +28,6 @@ async function procesarYLeer() {
     formData.append("file", fileInput.files[0]);
 
     try {
-        // Llama a la API de nuestro servidor Python
         const response = await fetch("/api/read-pdf", {
             method: "POST",
             body: formData
@@ -40,6 +40,8 @@ async function procesarYLeer() {
         // Configurar y activar la voz del navegador
         lineaLectura.text = data.text;
         lineaLectura.lang = 'es-ES'; // Idioma español
+        lineaLectura.rate = velocidadActual; // Aplicamos la velocidad actual guardada
+        
         window.speechSynthesis.speak(lineaLectura);
 
         lineaLectura.onend = () => {
@@ -49,6 +51,32 @@ async function procesarYLeer() {
     } catch (error) {
         status.innerText = "Hubo un error al procesar el PDF.";
         console.error(error);
+    }
+}
+
+function cambiarVelocidad() {
+    // Ciclo de velocidades: 1x -> 1.25x -> 1.5x -> 1.75x -> 2x -> 1x
+    if (velocidadActual >= 2.0) {
+        velocidadActual = 1.0;
+    } else {
+        velocidadActual += 0.25;
+    }
+
+    // Actualizar el texto del botón en la pantalla
+    document.getElementById('btnVelocidad').innerText = `⚡ Velocidad: ${velocidadActual}x`;
+
+    // Si ya está leyendo en este momento, aplicamos el cambio sobre la marcha
+    if (window.speechSynthesis.speaking) {
+        const textoRestante = document.getElementById('textoExtraido').value;
+        
+        // Cancelamos la lectura actual
+        window.speechSynthesis.cancel();
+        
+        // Creamos una nueva instancia con la nueva velocidad para continuar
+        lineaLectura = new SpeechSynthesisUtterance(textoRestante);
+        lineaLectura.lang = 'es-ES';
+        lineaLectura.rate = velocidadActual;
+        window.speechSynthesis.speak(lineaLectura);
     }
 }
 
