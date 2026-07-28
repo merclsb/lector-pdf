@@ -40,7 +40,7 @@ async function procesarYLeer() {
         // Configurar y activar la voz del navegador
         lineaLectura.text = data.text;
         lineaLectura.lang = 'es-ES'; // Idioma español
-        lineaLectura.rate = velocidadActual; // Aplicamos la velocidad actual guardada
+        lineaLectura.rate = velocidadActual; // Aplicamos la velocidad del slider
         
         window.speechSynthesis.speak(lineaLectura);
 
@@ -54,28 +54,25 @@ async function procesarYLeer() {
     }
 }
 
-function cambiarVelocidad() {
-    // Ciclo de velocidades: 1x -> 1.25x -> 1.5x -> 1.75x -> 2x -> 1x
-    if (velocidadActual >= 2.0) {
-        velocidadActual = 1.0;
-    } else {
-        velocidadActual += 0.25;
-    }
+function ajustarVelocidad(valor) {
+    // Convertimos el valor de la barra a número flotante
+    velocidadActual = parseFloat(valor);
+    
+    // Actualizamos el número visual al lado de la barra (ej: 1.5x)
+    document.getElementById('speedValue').innerText = `${velocidadActual.toFixed(1)}x`;
 
-    // Actualizar el texto del botón en la pantalla
-    document.getElementById('btnVelocidad').innerText = `⚡ Velocidad: ${velocidadActual}x`;
-
-    // Si ya está leyendo en este momento, aplicamos el cambio sobre la marcha
+    // Si la app está leyendo en este preciso instante, aplicamos el cambio dinámicamente
     if (window.speechSynthesis.speaking) {
-        const textoRestante = document.getElementById('textoExtraido').value;
+        const textoCompleto = document.getElementById('textoExtraido').value;
         
-        // Cancelamos la lectura actual
+        // Detener la reproducción actual
         window.speechSynthesis.cancel();
         
-        // Creamos una nueva instancia con la nueva velocidad para continuar
-        lineaLectura = new SpeechSynthesisUtterance(textoRestante);
+        // Crear una nueva instancia para continuar con el mismo texto pero nueva velocidad
+        lineaLectura = new SpeechSynthesisUtterance(textoCompleto);
         lineaLectura.lang = 'es-ES';
         lineaLectura.rate = velocidadActual;
+        
         window.speechSynthesis.speak(lineaLectura);
     }
 }
