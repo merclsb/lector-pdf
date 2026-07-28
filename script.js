@@ -1,20 +1,103 @@
 let lineaLectura = new SpeechSynthesisUtterance();
 let velocidadActual = 1.0;
-let pdfActivo = ""; 
+let sessionId = ""; 
+let pdfActivo = "";
+let pdfsLeidos = []; // Array en memoria sincronizado con el backend
 
-document.addEventListener("DOMContentLoaded", cargarListaPDFs);
+document.addEventListener("DOMContentLoaded", inicializarSesion);
+
+// Inicializa la sesión: busca una guardada en este navegador o pide una nueva al servidor
+async function inicializarSesion() {
+    const savedSession = localStorage.getItem("pdf_session_id");
+    
+    if (savedSession) {
+        try {
+            const response = await fetch(`/api/session/${savedSession}`);
+            if (response.ok) {
+                const data = await response.json();
+                establecerSesionLocal(data.session_id, data.data);
+                return;
+            }
+        } catch (e) { console.error("Error validando sesión previa", e); }
+    }
+    
+    // Si no hay o falló, crear una nueva sesión limpia
+    await solicitarNuevaSesion();
+}
+
+async function solicitarNuevaSesion() {
+    try {
+        const response = await fetch("/api/session/new");
+        const data = await response.json();
+        establecerSesionLocal(data.session_id, data.data);
+    } catch (e) {
+        document.getElementById('status').innerText = "Error crítico al inicializar la sesión en el servidor.";
+    }
+}
+
+function establecerSesionLocal(id, data) {
+    sessionId = id;
+    localStorage.setItem("pdf_session_id", id);
+    document.getElementById("lblSessionCode").innerText = id;
+    
+    pdfActivo = data.pdf_activo || "";
+    pdfsLeidos = data.leidos || [];
+    
+    cargarListaPDFs();
+    
+    // Si la sesión ya venía con un PDF seleccionado, cargar su texto silenciosamente
+    if (pdfActivo) {
+        recuperarTextoDePdfActivoSinAutoPlay();
+    }
+}
+
+// Permite conectar otro dispositivo escribiendo el código de 6 letras
+async function conectarSesionExistente() {
+    const inputCode = document.getElementById("txtSessionInput").value.trim().toUpperCase();
+    if (inputCode.length !== 6) {
+        alert("El código debe tener exactamente 6 caracteres.");
+        return;
+    }
+    
+    try {
+        const response = await fetch(`/api/session/${inputCode}`);
+        if (response.ok) {
+            const data = await response.json();
+            window.speechSynthesis.cancel();
+            restablecerBotonPausa();
+            document.getElementById('textoExtraido').value = "";
+            
+            establecerSesionLocal(data.session_id, data.data);
+            alert("¡Dispositivo sincronizado con éxito!");
+        } else {
+            alert("Código de sesión no encontrado en el servidor.");
+        }
+    } catch (e) {
+        alert("Error de conexión al intentar sincronizar.");
+    }
+}
+
+async function enviarProgresoAlServidor() {
+    if (!sessionId) return;
+    try {
+        await fetch(`/api/session/${sessionId}/progress`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ pdf_activo: pdfActivo, leidos: pdfsLeidos })
+        });
+    } catch (e) { console.error("Error guardando progreso remoto", e); }
+}
 
 async function cargarListaPDFs() {
     const listaUl = document.getElementById('listaPdfs');
     listaUl.innerHTML = "<li style='color:#666; padding: 10px;'>Cargando archivos...</li>";
-    const leidosGuardados = JSON.parse(localStorage.getItem('pdfsLeidos')) || [];
 
     try {
-        const response = await fetch("/api/list-pdfs");
+        const response = await fetch(`/api/session/${sessionId}/list`);
         const data = await response.json();
         listaUl.innerHTML = "";
 
-        if (data.files.length === 0) {
+        if (!data.files || data.files.length === 0) {
             listaUl.innerHTML = "<li style='color:#999; font-style:italic; padding: 10px;'>No hay archivos guardados.</li>";
             return;
         }
@@ -22,7 +105,7 @@ async function cargarListaPDFs() {
         data.files.forEach(filename => {
             const li = document.createElement('li');
             const esActivo = (filename === pdfActivo);
-            const esLeido = leidosGuardados.includes(filename);
+            const esLeido = pdfsLeidos.includes(filename);
 
             let clases = 'pdf-item';
             if (esActivo) clases += ' active-pdf';
@@ -39,20 +122,18 @@ async function cargarListaPDFs() {
             listaUl.appendChild(li);
         });
     } catch (error) {
-        listaUl.innerHTML = "<li style='color:red; padding: 10px;'>Error al cargar la lista.</li>";
-        console.error(error);
+        listaUl.innerHTML = "<li style='color:red; padding: 10px;'>Error al cargar los archivos remotos.</li>";
     }
 }
 
-function alternarEstadoLeido(filename, event) {
+async function alternarEstadoLeido(filename, event) {
     event.stopPropagation();
-    let leidosGuardados = JSON.parse(localStorage.getItem('pdfsLeidos')) || [];
     if (event.target.checked) {
-        if (!leidosGuardados.includes(filename)) leidosGuardados.push(filename);
+        if (!pdfsLeidos.includes(filename)) pdfsLeidos.push(filename);
     } else {
-        leidosGuardados = leidosGuardados.filter(item => item !== filename);
+        pdfsLeidos = pdfsLeidos.filter(item => item !== filename);
     }
-    localStorage.setItem('pdfsLeidos', JSON.stringify(leidosGuardados));
+    await enviarProgresoAlServidor();
     cargarListaPDFs();
 }
 
@@ -68,23 +149,17 @@ async function subirYActualizar() {
     }
 
     try {
-        const response = await fetch("/api/upload-pdfs", { method: "POST", body: formData });
+        const response = await fetch(`/api/session/${sessionId}/upload`, { method: "POST", body: formData });
         const data = await response.json();
-        if (response.ok) {
-            status.innerText = data.message;
-            if (data.uploaded && data.uploaded.length > 0) {
-                pdfActivo = data.uploaded[0]; // Corrección para tomar el primer elemento string de la lista subida
-                await cargarListaPDFs();
-                await seleccionarYLeerPDF(data.uploaded[0]);
-            } else {
-                await cargarListaPDFs();
-            }
-        } else {
-            status.innerText = data.detail || "Error al subir los archivos.";
+        
+        status.innerText = `Subida completada. Procesando archivos...`;
+        await cargarListaPDFs();
+        
+        if (data.uploaded && data.uploaded.length > 0) {
+            await seleccionarYLeerPDF(data.uploaded[0]);
         }
     } catch (error) {
-        status.innerText = "Hubo un error de conexión.";
-        console.error(error);
+        status.innerText = "Error al subir los archivos.";
     }
 }
 
@@ -93,23 +168,33 @@ async function seleccionarYLeerPDF(filename) {
     const textArea = document.getElementById('textoExtraido');
     
     window.speechSynthesis.cancel();
-    restablecerBotonPausa(); // Reinicia el botón de pausa al cambiar de PDF
+    restablecerBotonPausa();
     status.innerText = `Cargando: ${filename}...`;
     textArea.value = "";
     
     pdfActivo = filename;
+    await enviarProgresoAlServidor();
     await cargarListaPDFs();
 
     try {
-        const response = await fetch(`/api/read-saved-pdf/${filename}`);
+        const response = await fetch(`/api/session/${sessionId}/read/${filename}`);
         const data = await response.json();
         textArea.value = data.text;
         status.innerText = `Listo para escuchar: ${filename}`;
         reproducirTextoActual();
     } catch (error) {
         status.innerText = "Error al recuperar el contenido del PDF.";
-        console.error(error);
     }
+}
+
+async function recuperarTextoDePdfActivoSinAutoPlay() {
+    const textArea = document.getElementById('textoExtraido');
+    try {
+        const response = await fetch(`/api/session/${sessionId}/read/${pdfActivo}`);
+        const data = await response.json();
+        textArea.value = data.text;
+        document.getElementById('status').innerText = `Sesión restaurada. Archivo cargado: ${pdfActivo}`;
+    } catch (e) { console.error(e); }
 }
 
 function reproducirTextoActual() {
@@ -117,11 +202,10 @@ function reproducirTextoActual() {
     const status = document.getElementById('status');
 
     if (!texto || texto.startsWith("El texto del PDF")) {
-        alert("Primero selecciona o sube un PDF de la lista.");
+        alert("Primero selecciona o sube un PDF.");
         return;
     }
 
-    // Si el motor está pausado actualmente, al darle a "Leer" simplemente reanudamos
     if (window.speechSynthesis.paused) {
         window.speechSynthesis.resume();
         document.getElementById('btnPausa').innerText = "⏸️ Pausar";
@@ -142,16 +226,18 @@ function reproducirTextoActual() {
     lineaLectura.onend = () => {
         status.innerText = `Lectura finalizada de: ${pdfActivo}`;
         restablecerBotonPausa();
-        marcarComoLeidoAutomatico(pdfActivo);
+        if (!pdfsLeidos.includes(pdfActivo)) {
+            pdfsLeidos.push(pdfActivo);
+            enviarProgresoAlServidor().then(() => cargarListaPDFs());
+        }
     };
 }
 
-// NUEVA FUNCIÓN: Controla la pausa intermedia de la voz
 function alternarPausa() {
     const btnPausa = document.getElementById('btnPausa');
     const status = document.getElementById('status');
 
-    if (!window.speechSynthesis.speaking) return; // Si no hay audio sonando, no hace nada
+    if (!window.speechSynthesis.speaking) return;
 
     if (window.speechSynthesis.paused) {
         window.speechSynthesis.resume();
@@ -168,15 +254,6 @@ function restablecerBotonPausa() {
     document.getElementById('btnPausa').innerText = "⏸️ Pausar";
 }
 
-function marcarComoLeidoAutomatico(filename) {
-    let leidosGuardados = JSON.parse(localStorage.getItem('pdfsLeidos')) || [];
-    if (!leidosGuardados.includes(filename)) {
-        leidosGuardados.push(filename);
-        localStorage.setItem('pdfsLeidos', JSON.stringify(leidosGuardados));
-        cargarListaPDFs();
-    }
-}
-
 async function eliminarPDF(filename, event) {
     event.stopPropagation();
     if (!confirm(`¿Estás seguro de que quieres eliminar "${filename}"?`)) return;
@@ -184,21 +261,17 @@ async function eliminarPDF(filename, event) {
     if (filename === pdfActivo) {
         window.speechSynthesis.cancel();
         restablecerBotonPausa();
-        document.getElementById('status').innerText = "Archivo activo eliminado.";
         document.getElementById('textoExtraido').value = "";
         pdfActivo = "";
     }
 
-    let leidosGuardados = JSON.parse(localStorage.getItem('pdfsLeidos')) || [];
-    leidosGuardados = leidosGuardados.filter(item => item !== filename);
-    localStorage.setItem('pdfsLeidos', JSON.stringify(leidosGuardados));
+    pdfsLeidos = pdfsLeidos.filter(item => item !== filename);
+    await enviarProgresoAlServidor();
 
     try {
-        await fetch(`/api/delete-pdf/${filename}`, { method: 'DELETE' });
+        await fetch(`/api/session/${sessionId}/delete/${filename}`, { method: 'DELETE' });
         await cargarListaPDFs();
-    } catch (error) {
-        console.error("Error al eliminar:", error);
-    }
+    } catch (error) { console.error(error); }
 }
 
 function ajustarVelocidad(valor) {
@@ -210,31 +283,3 @@ function ajustarVelocidad(valor) {
 function modificarVelocidadPaso(cambio) {
     const slider = document.getElementById('speedRange');
     let nuevoValor = parseFloat(slider.value) + cambio;
-    if (nuevoValor < 0.5) nuevoValor = 0.5;
-    if (nuevoValor > 2.0) nuevoValor = 2.0;
-    
-    slider.value = nuevoValor;
-    velocidadActual = nuevoValor;
-    document.getElementById('speedValue').innerText = `${velocidadActual.toFixed(1)}x`;
-    actualizarVozEnTiempoReal();
-}
-
-function actualizarVozEnTiempoReal() {
-    // Si está hablando o pausado, recalculamos para no perder la posición
-    if (window.speechSynthesis.speaking) {
-        const textoCompleto = document.getElementById('textoExtraido').value;
-        window.speechSynthesis.cancel();
-        restablecerBotonPausa();
-        
-        lineaLectura = new SpeechSynthesisUtterance(textoCompleto);
-        lineaLectura.lang = 'es-ES';
-        lineaLectura.rate = velocidadActual;
-        window.speechSynthesis.speak(lineaLectura);
-    }
-}
-
-function detenerLectura() {
-    window.speechSynthesis.cancel();
-    restablecerBotonPausa();
-    document.getElementById('status').innerText = "Lectura detenida.";
-}
