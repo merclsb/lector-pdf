@@ -51,13 +51,13 @@ async function subirYActualizar() {
     
     const formData = new FormData();
     
-    // Recorrer todos los archivos seleccionados y agregarlos con la clave "files"
+    // Adjuntar todos los archivos seleccionados
     for (let i = 0; i < fileInput.files.length; i++) {
         formData.append("files", fileInput.files[i]);
     }
 
     try {
-        // Apuntamos a la nueva ruta en plural del backend
+        // CORRECCIÓN: Nos aseguramos de apuntar exactamente a "/api/upload-pdfs" (con 's' al final)
         const response = await fetch("/api/upload-pdfs", {
             method: "POST",
             body: formData
@@ -69,9 +69,9 @@ async function subirYActualizar() {
             status.innerText = data.message;
             await cargarListaPDFs();
             
-            // Si se subieron archivos con éxito, carga el primero de la lista para empezar a leerlo
+            // Cargar automáticamente el primer archivo subido con éxito de la tanda
             if (data.uploaded && data.uploaded.length > 0) {
-                await seleccionarYLeerPDF(data.uploaded[0]);
+                await seleccionarYLeerPDF(data.uploaded);
             }
         } else {
             status.innerText = data.detail || "Error al subir los archivos.";
@@ -81,6 +81,7 @@ async function subirYActualizar() {
         console.error(error);
     }
 }
+
 
 
 async function seleccionarYLeerPDF(filename) {
