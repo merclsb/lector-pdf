@@ -2,37 +2,203 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Lector de PDF Inteligente</title>
     <style>
-        body { font-family: 'Segoe UI', system-ui, sans-serif; max-width: 900px; margin: 40px auto; padding: 20px; background-color: #f4f7f6; color: #333; }
-        .container { display: flex; gap: 20px; flex-wrap: wrap; }
-        .card { background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); flex: 1; min-width: 300px; text-align: center; }
-        .sidebar { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); width: 280px; min-width: 250px; }
+        :root {
+            --primary: #007bff;
+            --primary-hover: #0056b3;
+            --success: #28a745;
+            --success-hover: #218838;
+            --danger: #dc3545;
+            --danger-hover: #c82333;
+            --bg: #f4f7f6;
+            --card-bg: #ffffff;
+            --text: #333333;
+        }
+
+        body { 
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; 
+            max-width: 900px; 
+            margin: 0 auto; 
+            padding: 15px; 
+            background-color: var(--bg); 
+            color: var(--text);
+            box-sizing: border-box;
+        }
+
+        *, *:before, *:after { box-sizing: inherit; }
+
+        h2 { text-align: center; margin: 15px 0 25px 0; color: #2c3e50; font-size: 1.5rem; }
+        h3 { margin-top: 0; color: #2c3e50; border-bottom: 2px solid #eee; padding-bottom: 10px; font-size: 1.2rem; }
+
+        /* Contenedor flexible adaptable */
+        .container { 
+            display: flex; 
+            flex-direction: column-reverse; /* En móviles, la lista de PDFs sale primero arriba */
+            gap: 20px; 
+        }
+
+        .card { 
+            background: var(--card-bg); 
+            padding: 20px; 
+            border-radius: 12px; 
+            box-shadow: 0 4px 15px rgba(0,0,0,0.05); 
+            text-align: center;
+            width: 100%;
+        }
+
+        .sidebar { 
+            background: var(--card-bg); 
+            padding: 20px; 
+            border-radius: 12px; 
+            box-shadow: 0 4px 15px rgba(0,0,0,0.05); 
+            width: 100%;
+        }
+
+        /* Botón de subida gigante para pantallas táctiles */
         input[type="file"] { display: none; }
-        .custom-file-upload { border: 2px dashed #007bff; color: #007bff; padding: 15px; border-radius: 8px; cursor: pointer; display: inline-block; width: 80%; margin-bottom: 20px; font-weight: bold; }
+        .custom-file-upload { 
+            border: 2px dashed var(--primary); 
+            color: var(--primary); 
+            padding: 18px; 
+            border-radius: 8px; 
+            cursor: pointer; 
+            display: inline-block; 
+            width: 100%; 
+            margin-bottom: 15px; 
+            font-weight: bold; 
+            font-size: 16px;
+            transition: background 0.2s;
+        }
         .custom-file-upload:hover { background-color: #e6f2ff; }
-        button { background: #28a745; color: white; border: none; padding: 12px 24px; border-radius: 6px; font-size: 16px; cursor: pointer; font-weight: bold; margin: 5px; }
-        button:hover { background: #218838; }
-        button.stop { background: #dc3545; }
-        button.stop:hover { background: #c82333; }
-        #status { margin: 15px 0; color: #666; font-style: italic; font-size: 14px; }
-        textarea { width: 100%; height: 180px; margin-top: 20px; border-radius: 6px; border: 1px solid #ccc; padding: 10px; font-family: inherit; resize: vertical; box-sizing: border-box; }
+
+        /* Controles de reproducción adaptados */
+        .action-buttons {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin: 15px 0;
+        }
+
+        button { 
+            color: white; 
+            border: none; 
+            padding: 14px 20px; 
+            border-radius: 8px; 
+            font-size: 16px; 
+            cursor: pointer; 
+            font-weight: bold; 
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 5px;
+            min-height: 48px; /* Tamaño mínimo recomendado para móviles */
+        }
+        button.play { background: var(--success); }
+        button.play:hover { background: var(--success-hover); }
+        button.stop { background: var(--danger); }
+        button.stop:hover { background: var(--danger-hover); }
+
+        #status { margin: 10px 0; color: #666; font-style: italic; font-size: 14px; min-height: 20px; }
         
-        /* Estilos de la lista de archivos */
-        .pdf-list { list-style: none; padding: 0; margin-top: 15px; max-height: 300px; overflow-y: auto; }
-        .pdf-item { display: flex; justify-content: space-between; align-items: center; padding: 8px; border-bottom: 1px solid #eee; font-size: 14px; gap: 5px; }
-        .pdf-name { cursor: pointer; color: #007bff; text-decoration: underline; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
-        .pdf-name:hover { color: #0056b3; }
-        .btn-delete { background: none; color: #dc3545; border: none; padding: 4px 8px; font-size: 14px; cursor: pointer; }
+        textarea { 
+            width: 100%; 
+            height: 220px; 
+            margin-top: 15px; 
+            border-radius: 8px; 
+            border: 1px solid #ccc; 
+            padding: 12px; 
+            font-family: inherit; 
+            font-size: 16px; /* Evita que iOS haga zoom automático molesto */
+            resize: vertical; 
+        }
+        
+        /* Controles de velocidad avanzados (+ / - / slider) */
+        .speed-control-wrapper {
+            margin: 20px 0;
+            background: #f8faf9;
+            padding: 12px;
+            border-radius: 8px;
+            border: 1px solid #e2e8f0;
+        }
+        .speed-label { font-weight: bold; font-size: 15px; margin-bottom: 8px; display: block; }
+        .speed-actions {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+        }
+        .btn-speed-step {
+            background: #e2e8f0;
+            color: #334155;
+            width: 40px;
+            height: 40px;
+            padding: 0;
+            border-radius: 50%;
+            font-size: 18px;
+        }
+        .btn-speed-step:hover { background: #cbd5e1; }
+        input[type="range"] { 
+            flex: 1; 
+            height: 8px;
+            cursor: pointer;
+            accent-color: var(--primary);
+        }
+        #speedValue { font-weight: bold; min-width: 45px; font-size: 15px; text-align: right; }
+
+        /* Lista de PDFs */
+        .pdf-list { list-style: none; padding: 0; margin-top: 15px; max-height: 250px; overflow-y: auto; }
+        .pdf-item { 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+            padding: 12px 8px; 
+            border-bottom: 1px solid #eee; 
+            font-size: 15px; 
+            gap: 10px; 
+        }
+        .pdf-name { 
+            cursor: pointer; 
+            color: var(--primary); 
+            text-decoration: underline; 
+            text-align: left; 
+            overflow: hidden; 
+            text-overflow: ellipsis; 
+            white-space: nowrap; 
+            flex: 1; 
+            padding: 4px 0;
+        }
+        .pdf-name:hover { color: var(--primary-hover); }
+        .btn-delete { background: none; color: var(--danger); border: none; padding: 8px; font-size: 16px; cursor: pointer; }
         .btn-delete:hover { color: #a71d2a; }
+
+        /* DISEÑO PARA ESCRITORIO (Pantallas medianas y grandes) */
+        @media (min-width: 768px) {
+            h2 { font-size: 1.8rem; margin: 30px 0; }
+            .container { flex-direction: row; } /* Se transforma en 2 columnas al lado del otro */
+            .card { flex: 1; padding: 30px; }
+            .sidebar { width: 300px; }
+            .action-buttons { display: flex; justify-content: center; }
+            button { width: auto; padding: 12px 28px; }
+            .custom-file-upload { width: 80%; }
+            .pdf-list { max-height: 400px; }
+        }
     </style>
 </head>
 <body>
 
-<h2 style="text-align: center; margin-bottom: 30px; color: #2c3e50;">📚 Lector de PDF con Almacenamiento</h2>
+<h2>📚 Lector de PDF Inteligente</h2>
 
 <div class="container">
+    <!-- Barra lateral con la lista de archivos (En móviles se acomoda arriba cómodamente) -->
+    <div class="sidebar">
+        <h3>📁 Tus PDFs Guardados</h3>
+        <ul id="listaPdfs" class="pdf-list">
+            <!-- Cargado vía JS -->
+        </ul>
+    </div>
+
     <!-- Panel Principal de Lectura -->
     <div class="card">
         <label class="custom-file-upload">
@@ -41,26 +207,23 @@
         </label>
         <div id="status">Ningún archivo activo</div>
         
-        <div style="margin: 15px 0; display: flex; align-items: center; justify-content: center; gap: 10px;">
-            <label for="speedRange" style="font-weight: bold;">⚡ Velocidad:</label>
-            <input type="range" id="speedRange" min="0.5" max="2.0" step="0.1" value="1.0" oninput="ajustarVelocidad(this.value)">
-            <span id="speedValue" style="font-weight: bold; min-width: 40px;">1.0x</span>
+        <!-- Control de velocidad mejorado con botones +/- -->
+        <div class="speed-control-wrapper">
+            <span class="speed-label">⚡ Velocidad de lectura</span>
+            <div class="speed-actions">
+                <button class="btn-speed-step" onclick="modificarVelocidadPaso(-0.1)">−</button>
+                <input type="range" id="speedRange" min="0.5" max="2.0" step="0.1" value="1.0" oninput="ajustarVelocidad(this.value)">
+                <button class="btn-speed-step" onclick="modificarVelocidadPaso(0.1)">+</button>
+                <span id="speedValue">1.0x</span>
+            </div>
         </div>
 
-        <div>
-            <button onclick="reproducirTextoActual()">▶️ Escuchar</button>
+        <div class="action-buttons">
+            <button class="play" onclick="reproducirTextoActual()">▶️ Escuchar</button>
             <button class="stop" onclick="detenerLectura()">⏹️ Detener</button>
         </div>
 
         <textarea id="textoExtraido" placeholder="El texto del PDF seleccionado aparecerá aquí..." readonly></textarea>
-    </div>
-
-    <!-- Barra lateral con la lista de archivos -->
-    <div class="sidebar">
-        <h3 style="margin-top: 0; color: #2c3e50; border-bottom: 2px solid #eee; padding-bottom: 10px;">📁 Tus PDFs Guardados</h3>
-        <ul id="listaPdfs" class="pdf-list">
-            <!-- Los elementos se cargarán dinámicamente aquí -->
-        </ul>
     </div>
 </div>
 
