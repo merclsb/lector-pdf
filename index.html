@@ -8,6 +8,7 @@
         :root {
             --primary: #007bff;
             --primary-hover: #0056b3;
+            --primary-light: #e6f2ff;
             --success: #28a745;
             --success-hover: #218838;
             --danger: #dc3545;
@@ -32,10 +33,9 @@
         h2 { text-align: center; margin: 15px 0 25px 0; color: #2c3e50; font-size: 1.5rem; }
         h3 { margin-top: 0; color: #2c3e50; border-bottom: 2px solid #eee; padding-bottom: 10px; font-size: 1.2rem; }
 
-        /* Contenedor flexible adaptable */
         .container { 
             display: flex; 
-            flex-direction: column-reverse; /* En móviles, la lista de PDFs sale primero arriba */
+            flex-direction: column-reverse; 
             gap: 20px; 
         }
 
@@ -56,7 +56,6 @@
             width: 100%;
         }
 
-        /* Botón de subida gigante para pantallas táctiles */
         input[type="file"] { display: none; }
         .custom-file-upload { 
             border: 2px dashed var(--primary); 
@@ -71,9 +70,8 @@
             font-size: 16px;
             transition: background 0.2s;
         }
-        .custom-file-upload:hover { background-color: #e6f2ff; }
+        .custom-file-upload:hover { background-color: var(--primary-light); }
 
-        /* Controles de reproducción adaptados */
         .action-buttons {
             display: grid;
             grid-template-columns: 1fr 1fr;
@@ -93,7 +91,7 @@
             align-items: center;
             justify-content: center;
             gap: 5px;
-            min-height: 48px; /* Tamaño mínimo recomendado para móviles */
+            min-height: 48px; 
         }
         button.play { background: var(--success); }
         button.play:hover { background: var(--success-hover); }
@@ -110,11 +108,11 @@
             border: 1px solid #ccc; 
             padding: 12px; 
             font-family: inherit; 
-            font-size: 16px; /* Evita que iOS haga zoom automático molesto */
+            font-size: 16px; 
             resize: vertical; 
         }
         
-        /* Controles de velocidad avanzados (+ / - / slider) */
+        /* Controles de velocidad fijos */
         .speed-control-wrapper {
             margin: 20px 0;
             background: #f8faf9;
@@ -132,11 +130,12 @@
         .btn-speed-step {
             background: #e2e8f0;
             color: #334155;
-            width: 40px;
-            height: 40px;
+            width: 42px;
+            height: 42px;
             padding: 0;
             border-radius: 50%;
-            font-size: 18px;
+            font-size: 20px;
+            min-height: 42px;
         }
         .btn-speed-step:hover { background: #cbd5e1; }
         input[type="range"] { 
@@ -145,19 +144,33 @@
             cursor: pointer;
             accent-color: var(--primary);
         }
-        #speedValue { font-weight: bold; min-width: 45px; font-size: 15px; text-align: right; }
+        #speedValue { font-weight: bold; min-width: 45px; font-size: 15px; text-align: right; color: #1e293b; }
 
-        /* Lista de PDFs */
+        /* Lista de PDFs y Estados Activos */
         .pdf-list { list-style: none; padding: 0; margin-top: 15px; max-height: 250px; overflow-y: auto; }
         .pdf-item { 
             display: flex; 
             justify-content: space-between; 
             align-items: center; 
-            padding: 12px 8px; 
+            padding: 10px 8px; 
             border-bottom: 1px solid #eee; 
             font-size: 15px; 
             gap: 10px; 
+            border-radius: 6px;
+            transition: background 0.2s;
         }
+        
+        /* Estilo dinámico cuando un archivo está seleccionado */
+        .pdf-item.active-pdf {
+            background-color: var(--primary-light);
+            border-left: 4px solid var(--primary);
+            font-weight: bold;
+        }
+        .pdf-item.active-pdf .pdf-name {
+            color: var(--primary-hover);
+            text-decoration: none;
+        }
+
         .pdf-name { 
             cursor: pointer; 
             color: var(--primary); 
@@ -167,18 +180,17 @@
             text-overflow: ellipsis; 
             white-space: nowrap; 
             flex: 1; 
-            padding: 4px 0;
+            padding: 6px 0;
         }
         .pdf-name:hover { color: var(--primary-hover); }
-        .btn-delete { background: none; color: var(--danger); border: none; padding: 8px; font-size: 16px; cursor: pointer; }
+        .btn-delete { background: none; color: var(--danger); border: none; padding: 8px; font-size: 16px; cursor: pointer; min-height: auto; }
         .btn-delete:hover { color: #a71d2a; }
 
-        /* DISEÑO PARA ESCRITORIO (Pantallas medianas y grandes) */
         @media (min-width: 768px) {
             h2 { font-size: 1.8rem; margin: 30px 0; }
-            .container { flex-direction: row; } /* Se transforma en 2 columnas al lado del otro */
+            .container { flex-direction: row; } 
             .card { flex: 1; padding: 30px; }
-            .sidebar { width: 300px; }
+            .sidebar { width: 320px; }
             .action-buttons { display: flex; justify-content: center; }
             button { width: auto; padding: 12px 28px; }
             .custom-file-upload { width: 80%; }
@@ -191,7 +203,6 @@
 <h2>📚 Lector de PDF Inteligente</h2>
 
 <div class="container">
-    <!-- Barra lateral con la lista de archivos (En móviles se acomoda arriba cómodamente) -->
     <div class="sidebar">
         <h3>📁 Tus PDFs Guardados</h3>
         <ul id="listaPdfs" class="pdf-list">
@@ -199,7 +210,6 @@
         </ul>
     </div>
 
-    <!-- Panel Principal de Lectura -->
     <div class="card">
         <label class="custom-file-upload">
             <input type="file" id="pdfFile" accept=".pdf" onchange="subirYActualizar()">
@@ -207,20 +217,20 @@
         </label>
         <div id="status">Ningún archivo activo</div>
         
-        <!-- Control de velocidad mejorado con botones +/- -->
         <div class="speed-control-wrapper">
             <span class="speed-label">⚡ Velocidad de lectura</span>
             <div class="speed-actions">
-                <button class="btn-speed-step" onclick="modificarVelocidadPaso(-0.1)">−</button>
+                <!-- Se añade type="button" para evitar bloqueos del navegador -->
+                <button type="button" class="btn-speed-step" onclick="modificarVelocidadPaso(-0.1)">−</button>
                 <input type="range" id="speedRange" min="0.5" max="2.0" step="0.1" value="1.0" oninput="ajustarVelocidad(this.value)">
-                <button class="btn-speed-step" onclick="modificarVelocidadPaso(0.1)">+</button>
+                <button type="button" class="btn-speed-step" onclick="modificarVelocidadPaso(0.1)">+</button>
                 <span id="speedValue">1.0x</span>
             </div>
         </div>
 
         <div class="action-buttons">
-            <button class="play" onclick="reproducirTextoActual()">▶️ Escuchar</button>
-            <button class="stop" onclick="detenerLectura()">⏹️ Detener</button>
+            <button type="button" class="play" onclick="reproducirTextoActual()">▶️ Escuchar</button>
+            <button type="button" class="stop" onclick="detenerLectura()">⏹️ Detener</button>
         </div>
 
         <textarea id="textoExtraido" placeholder="El texto del PDF seleccionado aparecerá aquí..." readonly></textarea>
