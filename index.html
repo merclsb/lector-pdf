@@ -244,9 +244,10 @@
             </div>
         </div>
 
-        <div class="action-buttons">
-            <button type="button" class="play" onclick="reproducirTextoActual()">▶️ Escuchar</button>
-            <button type="button" class="stop" onclick="detenerLectura()">⏹️ Detener</button>
+        <div class="action-buttons" style="grid-template-columns: 1fr 1fr 1fr;">
+            <button type="button" class="play" onclick="reproducirTextoActual()">▶️ Leer</button>
+            <button type="button" id="btnPausa" style="background: #ffc107; color: #212529;" onclick="alternarPausa()">⏸️ Pausar</button>
+            <button type="button" class="stop" onclick="detenerLectura()">⏹️ Parar</button>
         </div>
 
         <textarea id="textoExtraido" placeholder="El texto del PDF seleccionado aparecerá aquí..." readonly></textarea>
