@@ -112,7 +112,6 @@
             resize: vertical; 
         }
         
-        /* Controles de velocidad fijos */
         .speed-control-wrapper {
             margin: 20px 0;
             background: #f8faf9;
@@ -146,7 +145,7 @@
         }
         #speedValue { font-weight: bold; min-width: 45px; font-size: 15px; text-align: right; color: #1e293b; }
 
-        /* Lista de PDFs y Estados Activos */
+        /* Lista de PDFs, Estados Activos y Leídos */
         .pdf-list { list-style: none; padding: 0; margin-top: 15px; max-height: 250px; overflow-y: auto; }
         .pdf-item { 
             display: flex; 
@@ -155,12 +154,12 @@
             padding: 10px 8px; 
             border-bottom: 1px solid #eee; 
             font-size: 15px; 
-            gap: 10px; 
+            gap: 12px; 
             border-radius: 6px;
             transition: background 0.2s;
         }
         
-        /* Estilo dinámico cuando un archivo está seleccionado */
+        /* 1. ESTILO DOC EN LECTURA ACTUAL */
         .pdf-item.active-pdf {
             background-color: var(--primary-light);
             border-left: 4px solid var(--primary);
@@ -169,6 +168,24 @@
         .pdf-item.active-pdf .pdf-name {
             color: var(--primary-hover);
             text-decoration: none;
+        }
+
+        /* 2. ESTILO DOC YA LEÍDO (CHECKED) */
+        .pdf-item.read-pdf-done {
+            background-color: #f1f5f9;
+            opacity: 0.75;
+        }
+        .pdf-item.read-pdf-done .pdf-name {
+            color: #64748b;
+            text-decoration: line-through; /* Efecto tachado para marcar que se completó */
+        }
+
+        /* Estilo para los Checkboxes táctiles */
+        .read-checkbox {
+            width: 20px;
+            height: 20px;
+            cursor: pointer;
+            accent-color: var(--success);
         }
 
         .pdf-name { 
@@ -190,7 +207,7 @@
             h2 { font-size: 1.8rem; margin: 30px 0; }
             .container { flex-direction: row; } 
             .card { flex: 1; padding: 30px; }
-            .sidebar { width: 320px; }
+            .sidebar { width: 340px; }
             .action-buttons { display: flex; justify-content: center; }
             button { width: auto; padding: 12px 28px; }
             .custom-file-upload { width: 80%; }
@@ -212,15 +229,14 @@
 
     <div class="card">
         <label class="custom-file-upload">
-           <input type="file" id="pdfFile" accept=".pdf" multiple onchange="subirYActualizar()">
-            📂 Subir nuevo PDF
+            <input type="file" id="pdfFile" accept=".pdf" multiple onchange="subirYActualizar()">
+            📂 Subir nuevo(s) PDF(s)
         </label>
         <div id="status">Ningún archivo activo</div>
         
         <div class="speed-control-wrapper">
             <span class="speed-label">⚡ Velocidad de lectura</span>
             <div class="speed-actions">
-                <!-- Se añade type="button" para evitar bloqueos del navegador -->
                 <button type="button" class="btn-speed-step" onclick="modificarVelocidadPaso(-0.1)">−</button>
                 <input type="range" id="speedRange" min="0.5" max="2.0" step="0.1" value="1.0" oninput="ajustarVelocidad(this.value)">
                 <button type="button" class="btn-speed-step" onclick="modificarVelocidadPaso(0.1)">+</button>
