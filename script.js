@@ -1,12 +1,11 @@
 let lineaLectura = new SpeechSynthesisUtterance();
 let velocidadActual = 1.0;
 
-// Cargar la lista de PDFs guardados en cuanto se abra la página
 document.addEventListener("DOMContentLoaded", cargarListaPDFs);
 
 async function cargarListaPDFs() {
     const listaUl = document.getElementById('listaPdfs');
-    listaUl.innerHTML = "<li style='color:#666;'>Cargando archivos...</li>";
+    listaUl.innerHTML = "<li style='color:#666; padding: 10px;'>Cargando archivos...</li>";
 
     try {
         const response = await fetch("/api/list-pdfs");
@@ -14,7 +13,7 @@ async function cargarListaPDFs() {
         listaUl.innerHTML = "";
 
         if (data.files.length === 0) {
-            listaUl.innerHTML = "<li style='color:#999; font-style:italic;'>No hay archivos guardados.</li>";
+            listaUl.innerHTML = "<li style='color:#999; font-style:italic; padding: 10px;'>No hay archivos guardados.</li>";
             return;
         }
 
@@ -29,7 +28,7 @@ async function cargarListaPDFs() {
             listaUl.appendChild(li);
         });
     } catch (error) {
-        listaUl.innerHTML = "<li style='color:red;'>Error al cargar la lista.</li>";
+        listaUl.innerHTML = "<li style='color:red; padding: 10px;'>Error al cargar la lista.</li>";
         console.error(error);
     }
 }
@@ -54,10 +53,8 @@ async function subirYActualizar() {
         const data = await response.json();
         
         if (response.ok) {
-            status.innerText = `¡"${data.filename}" subido correctamente!`;
-            // Recargar la lista lateral para ver el nuevo archivo
+            status.innerText = `¡Subido correctamente!`;
             await cargarListaPDFs();
-            // Cargar automáticamente su texto en pantalla
             await seleccionarYLeerPDF(data.filename);
         } else {
             status.innerText = data.detail || "Error al subir el archivo.";
@@ -73,7 +70,7 @@ async function seleccionarYLeerPDF(filename) {
     const textArea = document.getElementById('textoExtraido');
     
     window.speechSynthesis.cancel();
-    status.innerText = `Cargando texto de: ${filename}...`;
+    status.innerText = `Cargando: ${filename}...`;
     textArea.value = "";
 
     try {
@@ -81,9 +78,8 @@ async function seleccionarYLeerPDF(filename) {
         const data = await response.json();
         
         textArea.value = data.text;
-        status.innerText = `Visualizando: ${filename}. Listo para escuchar.`;
+        status.innerText = `Listo para escuchar: ${filename}`;
         
-        // Auto-reproducir tras seleccionarlo
         reproducirTextoActual();
     } catch (error) {
         status.innerText = "Error al recuperar el contenido del PDF.";
@@ -96,7 +92,7 @@ function reproducirTextoActual() {
     const status = document.getElementById('status');
 
     if (!texto || texto.startsWith("El texto del PDF")) {
-        alert("Primero selecciona o sube un PDF de la lista lateral.");
+        alert("Primero selecciona o sube un PDF de la lista.");
         return;
     }
 
@@ -117,7 +113,6 @@ function reproducirTextoActual() {
 async function eliminarPDF(filename) {
     if (!confirm(`¿Estás seguro de que quieres eliminar "${filename}"?`)) return;
     
-    // Si borramos el archivo que se está leyendo actualmente, paramos la voz
     window.speechSynthesis.cancel();
     document.getElementById('status').innerText = "Archivo eliminado.";
     document.getElementById('textoExtraido').value = "";
@@ -130,10 +125,30 @@ async function eliminarPDF(filename) {
     }
 }
 
+// Responde a cambios de la barra deslizante (slider)
 function ajustarVelocidad(valor) {
     velocidadActual = parseFloat(valor);
     document.getElementById('speedValue').innerText = `${velocidadActual.toFixed(1)}x`;
+    actualizarVozEnTiempoReal();
+}
 
+// Responde a los clics de los botones + y -
+function modificarVelocidadPaso(cambio) {
+    const slider = document.getElementById('speedRange');
+    let nuevoValor = parseFloat(slider.value) + cambio;
+    
+    // Restringir que se mantenga entre el mínimo (0.5) y máximo (2.0)
+    if (nuevoValor < 0.5) nuevoValor = 0.5;
+    if (nuevoValor > 2.0) nuevoValor = 2.0;
+    
+    slider.value = nuevoValor.toFixed(1);
+    velocidadActual = nuevoValor;
+    document.getElementById('speedValue').innerText = `${velocidadActual.toFixed(1)}x`;
+    actualizarVozEnTiempoReal();
+}
+
+// Aplica el cambio de velocidad instantáneamente al motor de audio
+function actualizarVozEnTiempoReal() {
     if (window.speechSynthesis.speaking) {
         const textoCompleto = document.getElementById('textoExtraido').value;
         window.speechSynthesis.cancel();
