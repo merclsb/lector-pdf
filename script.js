@@ -1,14 +1,12 @@
 let lineaLectura = new SpeechSynthesisUtterance();
 let velocidadActual = 1.0;
-let pdfActivo = ""; // Nombre del PDF en lectura actual
+let pdfActivo = ""; 
 
 document.addEventListener("DOMContentLoaded", cargarListaPDFs);
 
 async function cargarListaPDFs() {
     const listaUl = document.getElementById('listaPdfs');
     listaUl.innerHTML = "<li style='color:#666; padding: 10px;'>Cargando archivos...</li>";
-
-    // Obtener la lista de PDFs completados guardada localmente en el navegador
     const leidosGuardados = JSON.parse(localStorage.getItem('pdfsLeidos')) || [];
 
     try {
@@ -23,8 +21,6 @@ async function cargarListaPDFs() {
 
         data.files.forEach(filename => {
             const li = document.createElement('li');
-            
-            // Evaluar los estados del PDF para aplicar las clases de diseño correspondientes
             const esActivo = (filename === pdfActivo);
             const esLeido = leidosGuardados.includes(filename);
 
@@ -33,16 +29,12 @@ async function cargarListaPDFs() {
             if (esLeido) clases += ' read-pdf-done';
             li.className = clases;
             
-            // Insertar checkbox, nombre del archivo e icono de borrado
             li.innerHTML = `
-                <input type="checkbox" class="read-checkbox" 
-                    ${esLeido ? 'checked' : ''} 
-                    onclick="alternarEstadoLeido('${filename}', event)" 
-                    title="Marcar como leído">
-                <span class="pdf-name" onclick="seleccionarYLeerPDF('${filename}')" title="Haga clic para cargar y leer">
+                <input type="checkbox" class="read-checkbox" ${esLeido ? 'checked' : ''} onclick="alternarEstadoLeido('${filename}', event)">
+                <span class="pdf-name" onclick="seleccionarYLeerPDF('${filename}')">
                     ${esActivo ? '📢 ' : ''}${filename}
                 </span>
-                <button type="button" class="btn-delete" onclick="eliminarPDF('${filename}', event)" title="Eliminar archivo">🗑️</button>
+                <button type="button" class="btn-delete" onclick="eliminarPDF('${filename}', event)">🗑️</button>
             `;
             listaUl.appendChild(li);
         });
@@ -52,50 +44,36 @@ async function cargarListaPDFs() {
     }
 }
 
-// Guarda o quita el nombre del PDF en la lista de completados del navegador
 function alternarEstadoLeido(filename, event) {
-    event.stopPropagation(); // Evita cargar el PDF al pulsar solo el checkbox
-    
+    event.stopPropagation();
     let leidosGuardados = JSON.parse(localStorage.getItem('pdfsLeidos')) || [];
-    
     if (event.target.checked) {
-        if (!leidosGuardados.includes(filename)) {
-            leidosGuardados.push(filename);
-        }
+        if (!leidosGuardados.includes(filename)) leidosGuardados.push(filename);
     } else {
         leidosGuardados = leidosGuardados.filter(item => item !== filename);
     }
-    
     localStorage.setItem('pdfsLeidos', JSON.stringify(leidosGuardados));
-    cargarListaPDFs(); // Redibujar la lista para aplicar el diseño tachado o normal
+    cargarListaPDFs();
 }
 
 async function subirYActualizar() {
     const fileInput = document.getElementById('pdfFile');
     const status = document.getElementById('status');
-
     if (fileInput.files.length === 0) return;
 
     status.innerText = `Subiendo ${fileInput.files.length} archivo(s)...`;
-    
     const formData = new FormData();
     for (let i = 0; i < fileInput.files.length; i++) {
         formData.append("files", fileInput.files[i]);
     }
 
     try {
-        const response = await fetch("/api/upload-pdfs", {
-            method: "POST",
-            body: formData
-        });
-        
+        const response = await fetch("/api/upload-pdfs", { method: "POST", body: formData });
         const data = await response.json();
-        
         if (response.ok) {
             status.innerText = data.message;
-            // Si subió varios, preseleccionar el primero de la lista para leer
             if (data.uploaded && data.uploaded.length > 0) {
-                pdfActivo = data.uploaded[0];
+                pdfActivo = data.uploaded[0]; // Corrección para tomar el primer elemento string de la lista subida
                 await cargarListaPDFs();
                 await seleccionarYLeerPDF(data.uploaded[0]);
             } else {
@@ -105,7 +83,7 @@ async function subirYActualizar() {
             status.innerText = data.detail || "Error al subir los archivos.";
         }
     } catch (error) {
-        status.innerText = "Hubo un error de conexión con el servidor.";
+        status.innerText = "Hubo un error de conexión.";
         console.error(error);
     }
 }
@@ -115,19 +93,18 @@ async function seleccionarYLeerPDF(filename) {
     const textArea = document.getElementById('textoExtraido');
     
     window.speechSynthesis.cancel();
+    restablecerBotonPausa(); // Reinicia el botón de pausa al cambiar de PDF
     status.innerText = `Cargando: ${filename}...`;
     textArea.value = "";
     
     pdfActivo = filename;
-    await cargarListaPDFs(); // Remarca instantáneamente el PDF activo en la lista lateral
+    await cargarListaPDFs();
 
     try {
         const response = await fetch(`/api/read-saved-pdf/${filename}`);
         const data = await response.json();
-        
         textArea.value = data.text;
         status.innerText = `Listo para escuchar: ${filename}`;
-        
         reproducirTextoActual();
     } catch (error) {
         status.innerText = "Error al recuperar el contenido del PDF.";
@@ -144,7 +121,16 @@ function reproducirTextoActual() {
         return;
     }
 
+    // Si el motor está pausado actualmente, al darle a "Leer" simplemente reanudamos
+    if (window.speechSynthesis.paused) {
+        window.speechSynthesis.resume();
+        document.getElementById('btnPausa').innerText = "⏸️ Pausar";
+        status.innerText = `Escuchando: ${pdfActivo}`;
+        return;
+    }
+
     window.speechSynthesis.cancel();
+    restablecerBotonPausa();
 
     lineaLectura = new SpeechSynthesisUtterance(texto);
     lineaLectura.lang = 'es-ES';
@@ -155,10 +141,31 @@ function reproducirTextoActual() {
 
     lineaLectura.onend = () => {
         status.innerText = `Lectura finalizada de: ${pdfActivo}`;
-        
-        // Opcional: Marcar como leído automáticamente al terminar de escuchar todo el texto
+        restablecerBotonPausa();
         marcarComoLeidoAutomatico(pdfActivo);
     };
+}
+
+// NUEVA FUNCIÓN: Controla la pausa intermedia de la voz
+function alternarPausa() {
+    const btnPausa = document.getElementById('btnPausa');
+    const status = document.getElementById('status');
+
+    if (!window.speechSynthesis.speaking) return; // Si no hay audio sonando, no hace nada
+
+    if (window.speechSynthesis.paused) {
+        window.speechSynthesis.resume();
+        btnPausa.innerText = "⏸️ Pausar";
+        status.innerText = `Escuchando: ${pdfActivo}`;
+    } else {
+        window.speechSynthesis.pause();
+        btnPausa.innerText = "▶️ Reanudar";
+        status.innerText = `Lectura pausada: ${pdfActivo}`;
+    }
+}
+
+function restablecerBotonPausa() {
+    document.getElementById('btnPausa').innerText = "⏸️ Pausar";
 }
 
 function marcarComoLeidoAutomatico(filename) {
@@ -172,17 +179,16 @@ function marcarComoLeidoAutomatico(filename) {
 
 async function eliminarPDF(filename, event) {
     event.stopPropagation();
-
     if (!confirm(`¿Estás seguro de que quieres eliminar "${filename}"?`)) return;
     
     if (filename === pdfActivo) {
         window.speechSynthesis.cancel();
+        restablecerBotonPausa();
         document.getElementById('status').innerText = "Archivo activo eliminado.";
         document.getElementById('textoExtraido').value = "";
         pdfActivo = "";
     }
 
-    // Limpiar también del registro local de leídos si se elimina del servidor
     let leidosGuardados = JSON.parse(localStorage.getItem('pdfsLeidos')) || [];
     leidosGuardados = leidosGuardados.filter(item => item !== filename);
     localStorage.setItem('pdfsLeidos', JSON.stringify(leidosGuardados));
@@ -204,31 +210,31 @@ function ajustarVelocidad(valor) {
 function modificarVelocidadPaso(cambio) {
     const slider = document.getElementById('speedRange');
     let nuevoValor = parseFloat(slider.value) + cambio;
-    
     if (nuevoValor < 0.5) nuevoValor = 0.5;
     if (nuevoValor > 2.0) nuevoValor = 2.0;
     
     slider.value = nuevoValor;
     velocidadActual = nuevoValor;
     document.getElementById('speedValue').innerText = `${velocidadActual.toFixed(1)}x`;
-    
     actualizarVozEnTiempoReal();
 }
 
 function actualizarVozEnTiempoReal() {
+    // Si está hablando o pausado, recalculamos para no perder la posición
     if (window.speechSynthesis.speaking) {
         const textoCompleto = document.getElementById('textoExtraido').value;
         window.speechSynthesis.cancel();
+        restablecerBotonPausa();
         
         lineaLectura = new SpeechSynthesisUtterance(textoCompleto);
         lineaLectura.lang = 'es-ES';
         lineaLectura.rate = velocidadActual;
-        
         window.speechSynthesis.speak(lineaLectura);
     }
 }
 
 function detenerLectura() {
     window.speechSynthesis.cancel();
+    restablecerBotonPausa();
     document.getElementById('status').innerText = "Lectura detenida.";
 }
