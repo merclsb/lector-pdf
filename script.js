@@ -47,13 +47,18 @@ async function subirYActualizar() {
 
     if (fileInput.files.length === 0) return;
 
-    status.innerText = "Subiendo archivo al servidor...";
+    status.innerText = `Subiendo ${fileInput.files.length} archivo(s) al servidor...`;
     
     const formData = new FormData();
-    formData.append("file", fileInput.files[0]);
+    
+    // Recorrer todos los archivos seleccionados y agregarlos con la clave "files"
+    for (let i = 0; i < fileInput.files.length; i++) {
+        formData.append("files", fileInput.files[i]);
+    }
 
     try {
-        const response = await fetch("/api/upload-pdf", {
+        // Apuntamos a la nueva ruta en plural del backend
+        const response = await fetch("/api/upload-pdfs", {
             method: "POST",
             body: formData
         });
@@ -61,18 +66,22 @@ async function subirYActualizar() {
         const data = await response.json();
         
         if (response.ok) {
-            status.innerText = `¡Subido correctamente!`;
-            pdfActivo = data.filename; // Marcar como activo el recién subido
+            status.innerText = data.message;
             await cargarListaPDFs();
-            await seleccionarYLeerPDF(data.filename);
+            
+            // Si se subieron archivos con éxito, carga el primero de la lista para empezar a leerlo
+            if (data.uploaded && data.uploaded.length > 0) {
+                await seleccionarYLeerPDF(data.uploaded[0]);
+            }
         } else {
-            status.innerText = data.detail || "Error al subir el archivo.";
+            status.innerText = data.detail || "Error al subir los archivos.";
         }
     } catch (error) {
         status.innerText = "Hubo un error de conexión con el servidor.";
         console.error(error);
     }
 }
+
 
 async function seleccionarYLeerPDF(filename) {
     const status = document.getElementById('status');
