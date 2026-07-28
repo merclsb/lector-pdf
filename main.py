@@ -75,15 +75,15 @@ async def upload_pdfs_session(session_id: str, files: List[UploadFile] = File(..
     session_path = os.path.join(BASE_UPLOAD_DIR, session_id)
     
     if not os.path.exists(session_path):
-        raise HTTPException(status_code=404, detail="Sesión no válida")
+        raise HTTPException(status_code=404, detail="Sesión no válida o expirada")
         
     uploaded_files = []
     errors = []
     
     for file in files:
         try:
-            if not file.filename.endswith('.pdf'):
-                errors.append(f"'{file.filename}' no es un PDF")
+            if not file.filename or not file.filename.endswith('.pdf'):
+                errors.append(f"'{file.filename}' no es un PDF válido")
                 continue
                 
             file_path = os.path.join(session_path, file.filename)
@@ -94,6 +94,7 @@ async def upload_pdfs_session(session_id: str, files: List[UploadFile] = File(..
             errors.append(f"Error con '{file.filename}': {str(e)}")
             
     return {"uploaded": uploaded_files, "errors": errors}
+
 
 # 5. Listar los PDFs de una sesión específica
 @app.get("/api/session/{session_id}/list")
