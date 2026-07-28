@@ -5,40 +5,63 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Lector de PDF Inteligente</title>
     <style>
-        body { font-family: 'Segoe UI', system-ui, sans-serif; max-width: 600px; margin: 40px auto; padding: 20px; background-color: #f4f7f6; color: #333; }
-        .card { background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); text-align: center; }
+        body { font-family: 'Segoe UI', system-ui, sans-serif; max-width: 900px; margin: 40px auto; padding: 20px; background-color: #f4f7f6; color: #333; }
+        .container { display: flex; gap: 20px; flex-wrap: wrap; }
+        .card { background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); flex: 1; min-width: 300px; text-align: center; }
+        .sidebar { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); width: 280px; min-width: 250px; }
         input[type="file"] { display: none; }
-        .custom-file-upload { border: 2px dashed #007bff; color: #007bff; padding: 15px; border-radius: 8px; cursor: pointer; display: inline-block; width: 80px%; margin-bottom: 20px; font-weight: bold; }
+        .custom-file-upload { border: 2px dashed #007bff; color: #007bff; padding: 15px; border-radius: 8px; cursor: pointer; display: inline-block; width: 80%; margin-bottom: 20px; font-weight: bold; }
         .custom-file-upload:hover { background-color: #e6f2ff; }
         button { background: #28a745; color: white; border: none; padding: 12px 24px; border-radius: 6px; font-size: 16px; cursor: pointer; font-weight: bold; margin: 5px; }
         button:hover { background: #218838; }
         button.stop { background: #dc3545; }
         button.stop:hover { background: #c82333; }
-        #status { margin: 15px 0; color: #666; font-style: italic; }
-        textarea { width: 100%; height: 150px; margin-top: 20px; border-radius: 6px; border: 1px solid #ccc; padding: 10px; font-family: inherit; resize: vertical; }
+        #status { margin: 15px 0; color: #666; font-style: italic; font-size: 14px; }
+        textarea { width: 100%; height: 180px; margin-top: 20px; border-radius: 6px; border: 1px solid #ccc; padding: 10px; font-family: inherit; resize: vertical; box-sizing: border-box; }
+        
+        /* Estilos de la lista de archivos */
+        .pdf-list { list-style: none; padding: 0; margin-top: 15px; max-height: 300px; overflow-y: auto; }
+        .pdf-item { display: flex; justify-content: space-between; align-items: center; padding: 8px; border-bottom: 1px solid #eee; font-size: 14px; gap: 5px; }
+        .pdf-name { cursor: pointer; color: #007bff; text-decoration: underline; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
+        .pdf-name:hover { color: #0056b3; }
+        .btn-delete { background: none; color: #dc3545; border: none; padding: 4px 8px; font-size: 14px; cursor: pointer; }
+        .btn-delete:hover { color: #a71d2a; }
     </style>
 </head>
 <body>
 
-<div class="card">
-    <h2>Subir y Escuchar PDF</h2>
-    <label class="custom-file-upload">
-        <input type="file" id="pdfFile" accept=".pdf" onchange="actualizarNombre()">
-        📂 Seleccionar PDF
-    </label>
-    <div id="status">Ningún archivo seleccionado</div>
-    
-    <div>
-        <button onclick="procesarYLeer()">▶️ Escuchar</button>
+<h2 style="text-align: center; margin-bottom: 30px; color: #2c3e50;">📚 Lector de PDF con Almacenamiento</h2>
+
+<div class="container">
+    <!-- Panel Principal de Lectura -->
+    <div class="card">
+        <label class="custom-file-upload">
+            <input type="file" id="pdfFile" accept=".pdf" onchange="subirYActualizar()">
+            📂 Subir nuevo PDF
+        </label>
+        <div id="status">Ningún archivo activo</div>
+        
         <div style="margin: 15px 0; display: flex; align-items: center; justify-content: center; gap: 10px;">
             <label for="speedRange" style="font-weight: bold;">⚡ Velocidad:</label>
             <input type="range" id="speedRange" min="0.5" max="2.0" step="0.1" value="1.0" oninput="ajustarVelocidad(this.value)">
             <span id="speedValue" style="font-weight: bold; min-width: 40px;">1.0x</span>
         </div>
-        <button class="stop" onclick="detenerLectura()">⏹️ Detener</button>
+
+        <div>
+            <button onclick="reproducirTextoActual()">▶️ Escuchar</button>
+            <button class="stop" onclick="detenerLectura()">⏹️ Detener</button>
+        </div>
+
+        <textarea id="textoExtraido" placeholder="El texto del PDF seleccionado aparecerá aquí..." readonly></textarea>
     </div>
 
-    <textarea id="textoExtraido" placeholder="El texto del PDF aparecerá aquí..." readonly></textarea>
+    <!-- Barra lateral con la lista de archivos -->
+    <div class="sidebar">
+        <h3 style="margin-top: 0; color: #2c3e50; border-bottom: 2px solid #eee; padding-bottom: 10px;">📁 Tus PDFs Guardados</h3>
+        <ul id="listaPdfs" class="pdf-list">
+            <!-- Los elementos se cargarán dinámicamente aquí -->
+        </ul>
+    </div>
 </div>
 
 <script src="script.js"></script>
