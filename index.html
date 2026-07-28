@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lector de PDF Inteligente</title>
+    <style>
+        body { font-family: 'Segoe UI', system-ui, sans-serif; max-width: 600px; margin: 40px auto; padding: 20px; background-color: #f4f7f6; color: #333; }
+        .card { background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); text-align: center; }
+        input[type="file"] { display: none; }
+        .custom-file-upload { border: 2px dashed #007bff; color: #007bff; padding: 15px; border-radius: 8px; cursor: pointer; display: inline-block; width: 80px%; margin-bottom: 20px; font-weight: bold; }
+        .custom-file-upload:hover { background-color: #e6f2ff; }
+        button { background: #28a745; color: white; border: none; padding: 12px 24px; border-radius: 6px; font-size: 16px; cursor: pointer; font-weight: bold; margin: 5px; }
+        button:hover { background: #218838; }
+        button.stop { background: #dc3545; }
+        button.stop:hover { background: #c82333; }
+        #status { margin: 15px 0; color: #666; font-style: italic; }
+        textarea { width: 100%; height: 150px; margin-top: 20px; border-radius: 6px; border: 1px solid #ccc; padding: 10px; font-family: inherit; resize: vertical; }
+    </style>
+</head>
+<body>
+
+<div class="card">
+    <h2>Subir y Escuchar PDF</h2>
+    <label class="custom-file-upload">
+        <input type="file" id="pdfFile" accept=".pdf" onchange="actualizarNombre()">
+        📂 Seleccionar PDF
+    </label>
+    <div id="status">Ningún archivo seleccionado</div>
+    
+    <div>
+        <button onclick="procesarYLeer()">▶️ Escuchar</button>
+        <button class="stop" onclick="detenerLectura()">⏹️ Detener</button>
+    </div>
+
+    <textarea id="textoExtraido" placeholder="El texto del PDF aparecerá aquí..." readonly></textarea>
+</div>
+
+<script src="script.js"></script>
+</body>
+</html>
