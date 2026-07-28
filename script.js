@@ -1,5 +1,6 @@
 let lineaLectura = new SpeechSynthesisUtterance();
 let velocidadActual = 1.0;
+let pdfActivo = ""; // Guarda el nombre del PDF que se está leyendo actualmente
 
 document.addEventListener("DOMContentLoaded", cargarListaPDFs);
 
@@ -19,11 +20,18 @@ async function cargarListaPDFs() {
 
         data.files.forEach(filename => {
             const li = document.createElement('li');
-            li.className = 'pdf-item';
+            // Si este archivo es el que está activo, le añadimos la clase CSS especial
+            if (filename === pdfActivo) {
+                li.className = 'pdf-item active-pdf';
+            } else {
+                li.className = 'pdf-item';
+            }
             
             li.innerHTML = `
-                <span class="pdf-name" onclick="seleccionarYLeerPDF('${filename}')" title="Haga clic para cargar y leer">${filename}</span>
-                <button class="btn-delete" onclick="eliminarPDF('${filename}')" title="Eliminar archivo">🗑️</button>
+                <span class="pdf-name" onclick="seleccionarYLeerPDF('${filename}')" title="Haga clic para cargar y leer">
+                    ${filename === pdfActivo ? '📖 ' : ''}${filename}
+                </span>
+                <button type="button" class="btn-delete" onclick="eliminarPDF('${filename}', event)" title="Eliminar archivo">🗑️</button>
             `;
             listaUl.appendChild(li);
         });
@@ -54,6 +62,7 @@ async function subirYActualizar() {
         
         if (response.ok) {
             status.innerText = `¡Subido correctamente!`;
+            pdfActivo = data.filename; // Marcar como activo el recién subido
             await cargarListaPDFs();
             await seleccionarYLeerPDF(data.filename);
         } else {
@@ -72,6 +81,10 @@ async function seleccionarYLeerPDF(filename) {
     window.speechSynthesis.cancel();
     status.innerText = `Cargando: ${filename}...`;
     textArea.value = "";
+    
+    // Actualizar el estado global del PDF seleccionado y redibujar la lista lateral
+    pdfActivo = filename;
+    await cargarListaPDFs();
 
     try {
         const response = await fetch(`/api/read-saved-pdf/${filename}`);
@@ -103,19 +116,25 @@ function reproducirTextoActual() {
     lineaLectura.rate = velocidadActual;
     
     window.speechSynthesis.speak(lineaLectura);
-    status.innerText = "Reproduciendo audio...";
+    status.innerText = `Reproduciendo audio de: ${pdfActivo}`;
 
     lineaLectura.onend = () => {
         status.innerText = "Lectura finalizada.";
     };
 }
 
-async function eliminarPDF(filename) {
+async function eliminarPDF(filename, event) {
+    // Evita que al pulsar la papelera se intente también seleccionar el PDF
+    event.stopPropagation();
+
     if (!confirm(`¿Estás seguro de que quieres eliminar "${filename}"?`)) return;
     
-    window.speechSynthesis.cancel();
-    document.getElementById('status').innerText = "Archivo eliminado.";
-    document.getElementById('textoExtraido').value = "";
+    if (filename === pdfActivo) {
+        window.speechSynthesis.cancel();
+        document.getElementById('status').innerText = "Archivo activo eliminado.";
+        document.getElementById('textoExtraido').value = "";
+        pdfActivo = "";
+    }
 
     try {
         await fetch(`/api/delete-pdf/${filename}`, { method: 'DELETE' });
@@ -125,29 +144,29 @@ async function eliminarPDF(filename) {
     }
 }
 
-// Responde a cambios de la barra deslizante (slider)
+// Controla los cambios directos arrastrando la barra
 function ajustarVelocidad(valor) {
     velocidadActual = parseFloat(valor);
     document.getElementById('speedValue').innerText = `${velocidadActual.toFixed(1)}x`;
     actualizarVozEnTiempoReal();
 }
 
-// Responde a los clics de los botones + y -
+// Controla de forma robusta los clics en + y -
 function modificarVelocidadPaso(cambio) {
     const slider = document.getElementById('speedRange');
     let nuevoValor = parseFloat(slider.value) + cambio;
     
-    // Restringir que se mantenga entre el mínimo (0.5) y máximo (2.0)
     if (nuevoValor < 0.5) nuevoValor = 0.5;
     if (nuevoValor > 2.0) nuevoValor = 2.0;
     
-    slider.value = nuevoValor.toFixed(1);
+    // Actualizamos tanto el valor interno del slider como la interfaz
+    slider.value = nuevoValor;
     velocidadActual = nuevoValor;
     document.getElementById('speedValue').innerText = `${velocidadActual.toFixed(1)}x`;
+    
     actualizarVozEnTiempoReal();
 }
 
-// Aplica el cambio de velocidad instantáneamente al motor de audio
 function actualizarVozEnTiempoReal() {
     if (window.speechSynthesis.speaking) {
         const textoCompleto = document.getElementById('textoExtraido').value;
